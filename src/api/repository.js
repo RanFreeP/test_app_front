@@ -17,7 +17,6 @@ export default {
     },
 
     getModelsAll(page, brand) {
-        // ?page=${params.page}&brand=${params.brand}
         return api.get(API_URL + `/models`, {
             params: {
                 page,
