@@ -1,215 +1,141 @@
-import Vue from 'vue'
-import Vuex from 'vuex'
+import {createStore} from "vuex"
 import repository from "@/api/repository";
 
-Vue.use(Vuex)
+const store = createStore({
+    modules: {
+        auth: {
+            state: () => ({
+                user: sessionStorage.token ? JSON.parse(sessionStorage.getItem('token')) : null,
+                profileMe: {
+                    roles: sessionStorage.token ? JSON.parse(sessionStorage.getItem('userName')) : [],
+                    username: sessionStorage.token ? JSON.parse(sessionStorage.getItem('userRoles')) : null,
+                }
+            }),
+            getters: {
+                user: state => state.user,
+                authenticated: state => state.user !== null,
+                profileMe: state => state.profileMe,
+            },
+            mutations: {
+                SET_USER(state, user) {
+                    state.user = user;
+                },
+                SET_PROFILE_ME(state, profileMe) {
+                    state.profileMe = profileMe;
+                },
+            },
+            actions: {
+                async login({commit}, user) {
+                    const {data} = await repository.login(user);
+                    commit('SET_USER', 'Bearer ' + data.token);
 
-export default new Vuex.Store({
-  modules: {
-    auth: {
-      state: () => ({
-        user: sessionStorage.token ? JSON.parse(sessionStorage.getItem('token')) : null,
-        profileMe: '',
-        role: [],
-        rights: [],
-      }),
-      getters: {
-        user: state => state.user,
-        authenticated: state => state.user !== null,
-        profileMe: state => state.profileMe,
-        role: state => state.role,
-        rights: state => state.rights,
-      },
-      mutations: {
-        SET_USER(state, user) {
-          state.user = user;
-        },
-        SET_PROFILE_ME(state, profileMe) {
-          state.profileMe = profileMe;
-        },
-        SET_ROLE_ME(state, roles) {
-          if (roles) {
-            state.role = Object.entries(roles).map((arr) => ({
-              id: arr[0],
-              name: arr[1],
-              priority: arr[2],
-            }));
-          } else
-            state.role = roles
-        },
-        SET_RIGHTS_ME(state, rights) {
-            state.rights = rights
-        }
-      },
-      actions: {
-        async login({commit}, user) {
-          const {data} = await repository.login(user);
-          commit('SET_USER','Bearer '+data.token);
+                    sessionStorage.token = JSON.stringify('Bearer ' + data.token);
 
-          sessionStorage.token = JSON.stringify('Bearer '+data.token);
+                    if(data.token) {
+                        const {data} = await repository.profileMe();
+                        commit('SET_PROFILE_ME',data.body);
 
-          if(data) {
-            const {data} = await repository.profileMe();
-            commit('SET_PROFILE_ME',data.userProfile);
-            commit('SET_ROLE_ME',data.userProfile.roles);
-            commit('SET_RIGHTS_ME',data.userProfile.right);
-          }
+                        sessionStorage.userName = JSON.stringify(data.body.roles);
+                        sessionStorage.userRoles = JSON.stringify(data.body.username);
+                    }
+                },
+                async logout({commit}) {
+                    commit('SET_USER', null);
+                    commit('SET_PROFILE_ME', {roles: [],username:null});
+                    sessionStorage.removeItem('token');
+                    sessionStorage.removeItem('userName');
+                    sessionStorage.removeItem('userRoles');
+                    //await repository.logout();
+                },
+
+            },
         },
-        async logout({commit}) {
-          commit('SET_USER',null);
-          commit('SET_PROFILE_ME',null);
-          commit('SET_ROLE_ME',null);
-          commit('SET_RIGHTS_ME',null);
-          sessionStorage.removeItem('token');
-          //await repository.logout();
+        modelsNoteAll: {
+            state: () => ({
+                modelsNoteAll: [],
+            }),
+            getters: {
+                modelsNoteAll: state => state.modelsNoteAll,
+            },
+            mutations: {
+                SET_MODELS_ALL(state, models) {
+                    state.modelsNoteAll = models
+                },
+            },
+            actions: {
+                async getModelsNoteAll({commit}, page, brand) {
+                    const {data} = await repository.getModelsAll(page, brand);
+                    if (data) {
+                        commit('SET_MODELS_ALL', data);
+                    }
+                },
+            },
         },
-        async profileMe({commit}) {
-          const {data} = await repository.profileMe();
-          if (data && data.userProfile) {
-            commit('SET_PROFILE_ME',data.userProfile);
-            commit('SET_ROLE_ME',data.userProfile.roles);
-            commit('SET_RIGHTS_ME',data.userProfile.right);
-          }
+        models: {
+            state: () => ({
+                modelsForIdBrand: [],
+            }),
+            getters: {
+                modelsForIdBrand: state => state.modelsForIdBrand,
+            },
+            mutations: {
+                SET_MODELS_FOR_ID_BRAND(state, models) {
+                    state.modelsForIdBrand = models
+                },
+            },
+            actions: {
+                async modelForIdBrand({commit}, id) {
+                    const {data} = await repository.getModelsForIdBrand(id);
+                    if (data) {
+                        commit('SET_MODELS_FOR_ID_BRAND', data);
+                    }
+                },
+            },
+        },
+        brands: {
+            state: () => ({
+                brandForId: [],
+                brandAll: [],
+                modelForId: []
+            }),
+            getters: {
+                brandForId: state => state.brandForId,
+                brandAll: state => state.brandAll,
+            },
+            mutations: {
+                SET_BRAND_FOR_ID(state, brand) {
+                    state.brandForId = brand
+                },
+                SET_ALL_BRANDS(state, brands) {
+                    state.brandAll = brands
+                },
+                SET_MODEL_FOR_ID(state, model) {
+                    state.modelForId = model
+                },
+            },
+            actions: {
+                async getBrandForId({commit}, id) {
+                    const {data} = await repository.getBrandForId(id);
+                    if (data) {
+                        commit('SET_BRAND_FOR_ID', data.body);
+                    }
+                },
+                async getALlBrands({commit}) {
+                    const {data} = await repository.getALlBrands();
+                    if (data) {
+                        commit('SET_ALL_BRANDS', data.body);
+                    }
+                },
+                async setModelForId({commit}, params) {
+                    const {data} = await repository.setModelForId(params);
+
+                    if (data) {
+                        commit('SET_MODEL_FOR_ID',data.body);
+                    }
+                },
+            }
         }
-      },
-    },
-    users: {
-      state: () => ({
-        users: [],
-        userForId: [],
-      }),
-      getters: {
-        users: state => state.users,
-        userForId: state => state.userForId,
-      },
-      mutations: {
-        SET_USERS_ALL(state, users) {
-            state.users = users
-        },
-        SET_USERS_FOR_ID(state, user) {
-          state.userForId = user
-        }
-      },
-      actions: {
-        async getAllUsers({commit}) {
-          const {data} = await repository.getUsersAll();
-          if (data) {
-            commit('SET_USERS_ALL',data.users);
-          }
-        },
-        async getUserForId({commit}, id) {
-          const {data} = await repository.getUserForId(id);
-          if (data) {
-            commit('SET_USERS_FOR_ID',data.user);
-          }
-        }
-      },
-    },
-    bids: {
-      state: () => ({
-        bids: [],
-      }),
-      getters: {
-        bids: state => state.bids,
-      },
-      mutations: {
-        SET_BIDS(state, bids) {
-          state.bids = bids
-        },
-      },
-      actions: {
-        async getBids({commit},type) {
-          const {data} = await repository.getBids(type);
-          if (data) {
-            commit('SET_BIDS',data.bids);
-          }
-        },
-      },
-    },
-    bidsDeleted: {
-      state: () => ({
-        bidsDeleted: [],
-      }),
-      getters: {
-        bidsDeleted: state => state.bidsDeleted,
-      },
-      mutations: {
-        SET_BIDS_DELETED(state, bids) {
-          state.bidsDeleted = bids
-        },
-      },
-      actions: {
-        async getBidsDeleted({commit}) {
-          const {data} = await repository.getBidsDeleted();
-          if (data) {
-            commit('SET_BIDS_DELETED',data);
-          }
-        },
-      },
-    },
-    documentCarAll: {
-      state: () => ({
-        documentCarAll: [],
-      }),
-      getters: {
-        documentCarAll: state => state.documentCarAll,
-      },
-      mutations: {
-        SET_DOCUMENT_CAR_ALL(state, documentCar) {
-          state.documentCarAll = documentCar
-        },
-      },
-      actions: {
-        async getDocumentCarAll({commit}) {
-          const {data} = await repository.getDocumentCarAll();
-          if (data) {
-            commit('SET_DOCUMENT_CAR_ALL',data.carDocuments);
-          }
-        },
-      },
-    },
-    documentCarReviewed: {
-      state: () => ({
-        documentCarReviewed: [],
-      }),
-      getters: {
-        documentCarReviewed: state => state.documentCarReviewed,
-      },
-      mutations: {
-        SET_DOCUMENT_CAR_REVIEWED(state, documentCar) {
-          state.documentCarReviewed = documentCar
-        },
-      },
-      actions: {
-        async getDocumentCarReviewed({commit}) {
-          const {data} = await repository.getDocumentCarReviewed();
-          if (data) {
-            commit('SET_DOCUMENT_CAR_REVIEWED',data.carDocuments);
-          }
-        },
-      },
-    },
-    documentCarUnReviewed: {
-      state: () => ({
-        documentCarUnReviewed: [],
-      }),
-      getters: {
-        documentCarUnReviewed: state => state.documentCarUnReviewed,
-      },
-      mutations: {
-        SET_DOCUMENT_CAR_REVIEWED(state, documentCar) {
-          state.documentCarUnReviewed = documentCar
-        },
-      },
-      actions: {
-        async getDocumentCarUnReviewed({commit}) {
-          const {data} = await repository.getDocumentCarUnReviewed();
-          if (data) {
-            commit('SET_DOCUMENT_CAR_REVIEWED',data.carDocuments);
-          }
-        },
-      },
     }
-  }
 
 })
+export default store
